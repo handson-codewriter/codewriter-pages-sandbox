@@ -38,6 +38,14 @@ class TestSite(unittest.TestCase):
             self.html,
         )
 
+    def test_meta_description(self):
+        metas = re.findall(r'<meta name="description" content="([^"]*)">', self.html)
+        self.assertEqual(len(metas), 1)
+        self.assertEqual(
+            metas[0],
+            "Een statische pagina die de codewriter-bouwlijn autonoom bouwt, test en publiceert.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
