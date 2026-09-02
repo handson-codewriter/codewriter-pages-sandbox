@@ -24,7 +24,7 @@ trap 'kill "$server_pid" 2>/dev/null || true' EXIT
 
 ok=""
 for _ in $(seq 1 50); do
-    if curl -s -o /dev/null "http://127.0.0.1:$port/index.html"; then
+    if python3 -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:$port/index.html', timeout=1).status == 200 else 1)" 2>/dev/null; then
         ok=1
         break
     fi
@@ -35,18 +35,35 @@ if [ -z "$ok" ]; then
     exit 1
 fi
 
-body="$(curl -s "http://127.0.0.1:$port/index.html")"
+body="$(python3 -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:$port/index.html').read().decode('utf-8'))")"
 
-marker="$(printf '%s' "$body" | grep -oE 'name="build-sha" content="[^"]*"' | head -n1)"
-if [ -z "$marker" ]; then
-    echo "smoke: geen build-sha marker gevonden in de geserveerde index.html" >&2
+meta_marker="$(printf '%s' "$body" | grep -oE 'name="build-sha" content="[^"]*"' | head -n1)"
+if [ -z "$meta_marker" ]; then
+    echo "smoke: geen build-sha meta marker gevonden in de geserveerde index.html" >&2
+    exit 1
+fi
+meta_value="$(printf '%s' "$meta_marker" | sed -E 's/^.*content="([^"]*)".*$/\1/')"
+
+footer_marker="$(printf '%s' "$body" | grep -oE 'build [^<]*' | head -n1)"
+if [ -z "$footer_marker" ]; then
+    echo "smoke: geen build-sha footer marker gevonden in de geserveerde index.html" >&2
+    exit 1
+fi
+footer_value="$(printf '%s' "$footer_marker" | sed -E 's/^build //')"
+
+if [ "$meta_value" != "$sha" ]; then
+    echo "smoke: build-sha meta marker is '$meta_value', verwacht '$sha'" >&2
     exit 1
 fi
 
-marker_value="$(printf '%s' "$marker" | sed -E 's/^.*content="([^"]*)".*$/\1/')"
-if [ "$marker_value" != "$sha" ]; then
-    echo "smoke: build-sha marker is '$marker_value', verwacht '$sha' (A1.4b: de marker moet gelijk zijn aan de sha die smoke.sh zelf berekende, niet slechts 'aanwezig en niet de placeholder')" >&2
+if [ "$footer_value" != "$sha" ]; then
+    echo "smoke: build-sha footer marker is '$footer_value', verwacht '$sha'" >&2
     exit 1
 fi
 
-echo "smoke: static-site geserveerd met marker content=\"$marker_value\" (== $sha)"
+if [ "$meta_value" != "$footer_value" ]; then
+    echo "smoke: meta marker '$meta_value' en footer marker '$footer_value' komen niet overeen" >&2
+    exit 1
+fi
+
+echo "smoke: static-site geserveerd met meta content=\"$meta_value\" en footer \"build $footer_value\" (== $sha)"
