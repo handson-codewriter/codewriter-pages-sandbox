@@ -1,0 +1,37 @@
+name: ci
+
+# Eigen G3-poort van een static-site doelproject (fase 5b, WP5b.1).
+# Print bewust niets uit een omgevingsvariabele, pad of runlog van de
+# bouwlijn (D5b-8): Actions-logs zijn publiek op een publieke repo.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: snelle voorcheck -- index.html bestaat, is valide HTML en draagt de marker
+        run: |
+          set -euo pipefail
+          test -f index.html
+          grep -qi '<!doctype html>' index.html
+          grep -qi '<html' index.html
+          grep -qi '</html>' index.html
+          grep -q 'build-sha' index.html
+
+      - name: de echte poort -- start de site lokaal en verifieer de marker
+        run: bash scripts/smoke.sh

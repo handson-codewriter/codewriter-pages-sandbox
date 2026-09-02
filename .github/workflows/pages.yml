@@ -1,0 +1,41 @@
+name: pages
+
+# Publiceert de static-site naar GitHub Pages (fase 5b, WP5b.1, D5b-1).
+# `enablement: false`: Pages AANZETTEN is een scaffold-actie via de API,
+# niet iets dat een doelproject-workflow zelf doet.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: vul de build-sha marker
+        run: sed -i "s/__BUILD_SHA__/${GITHUB_SHA}/g" index.html
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: false
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
